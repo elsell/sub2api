@@ -374,3 +374,52 @@ func TestJWTAuth_TokenVersionMismatch(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	require.Equal(t, "TOKEN_REVOKED", body.Code)
 }
+
+// Return fresh user snapshots as the PostgreSQL repository does, so normalization
+// cannot accidentally mutate the stored generation in this regression test.
+type revocableJWTUserRepo struct{ *stubJWTUserRepo }
+
+func (r *revocableJWTUserRepo) GetByID(ctx context.Context, id int64) (*service.User, error) {
+	user, err := r.stubJWTUserRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	copy := *user
+	return &copy, nil
+}
+func (r *revocableJWTUserRepo) IncrementTokenVersion(_ context.Context, id int64) error {
+	r.users[id].TokenVersion++
+	return nil
+}
+
+func TestJWTAuthRejectsAccessTokenAfterDurableRevocation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &revocableJWTUserRepo{&stubJWTUserRepo{users: map[int64]*service.User{
+		1: {ID: 1, Email: "owner@example.com", PasswordHash: "hash", Role: service.RoleAdmin, Status: service.StatusActive},
+	}}}
+	cfg := &config.Config{}
+	cfg.JWT.Secret = "regression-test-secret"
+	cfg.JWT.ExpireHour = 1
+	auth := service.NewAuthService(nil, repo, nil, nil, cfg, nil, nil, nil, nil, nil, nil, nil, nil)
+	token, err := auth.GenerateToken(context.Background(), repo.users[1])
+	require.NoError(t, err)
+	// A separate auth instance serves requests, sharing only the repository.
+	replica := service.NewAuthService(nil, repo, nil, nil, cfg, nil, nil, nil, nil, nil, nil, nil, nil)
+	router := gin.New()
+	router.GET("/protected", gin.HandlerFunc(NewJWTAuthMiddleware(replica, service.NewUserService(repo, nil, nil, nil), nil, nil)), func(c *gin.Context) { c.Status(http.StatusOK) })
+	request := func(token string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+	require.Equal(t, http.StatusOK, request(token).Code)
+	require.NoError(t, auth.RevokeAllUserTokens(context.Background(), 1))
+	rec := request(token)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+	require.Contains(t, rec.Body.String(), "TOKEN_REVOKED")
+	fresh, err := auth.GenerateToken(context.Background(), repo.users[1])
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, request(fresh).Code)
+}

@@ -30,6 +30,11 @@ func (s *userHandlerRepoStub) Create(context.Context, *service.User) error { ret
 func (s *userHandlerRepoStub) CreateWithEmailAliasGuard(context.Context, *service.User) error {
 	return nil
 }
+func (s *userHandlerRepoStub) IncrementTokenVersion(_ context.Context, _ int64) error {
+	s.user.TokenVersion++
+	return nil
+}
+
 func (s *userHandlerRepoStub) GetByID(context.Context, int64) (*service.User, error) {
 	cloned := *s.user
 	return &cloned, nil
@@ -424,6 +429,10 @@ func (s *userHandlerRefreshTokenCacheStub) StoreRefreshToken(context.Context, st
 }
 
 func (s *userHandlerRefreshTokenCacheStub) GetRefreshToken(context.Context, string) (*service.RefreshTokenData, error) {
+	return nil, service.ErrRefreshTokenNotFound
+}
+
+func (s *userHandlerRefreshTokenCacheStub) ConsumeRefreshToken(context.Context, string) (*service.RefreshTokenData, error) {
 	return nil, service.ErrRefreshTokenNotFound
 }
 

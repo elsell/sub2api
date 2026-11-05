@@ -949,3 +949,21 @@ Copyright (c) 2026 Wesley Liddick
 **If you find this project useful, please give it a star!**
 
 </div>
+
+
+## Fork authentication hardening
+
+This fork adds a persistent user token generation and atomic refresh-token consumption.
+Migration `250_user_token_version.sql` must run before starting the patched server.
+Existing generation-zero users retain their tokens until password change, expiry, or
+explicit revocation. Complete the rollout to every replica before relying on revoke-all:
+older replicas do not enforce the new generation.
+
+Revoke-all invalidates existing access tokens, refresh tokens, and delegated MCP grants.
+A refresh token can be exchanged only once, using Redis `GETDEL` (Redis 6.2+, covered
+by the project's Redis 7+ requirement). A failed refresh after consumption may require
+signing in again. Ordinary logout and single-session revocation retain their existing
+access-token expiry behavior; use revoke-all when credentials may be compromised.
+
+These patches do not encrypt upstream credentials or backups, change routing policy,
+or address the other findings from the security review.

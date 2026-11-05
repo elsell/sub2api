@@ -187,6 +187,14 @@ func (r *mcpOAuthUserRepo) GetByID(_ context.Context, id int64) (*User, error) {
 	return &copy, nil
 }
 
+func (r *mcpOAuthUserRepo) IncrementTokenVersion(_ context.Context, id int64) error {
+	if r.user == nil || r.user.ID != id {
+		return ErrUserNotFound
+	}
+	r.user.TokenVersion++
+	return nil
+}
+
 const mcpTestResource = "https://platform.example/api/v1/mcp"
 
 type mcpOAuthFixture struct {

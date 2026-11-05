@@ -1037,8 +1037,8 @@ func (s *UserService) ChangePassword(ctx context.Context, userID int64, req Chan
 	// This ensures that any tokens issued before the password change become invalid
 	user.TokenVersion++
 
-	// TokenVersion 没有对应的数据库列（见 resolvedTokenVersion：它由 email+password_hash
-	// 指纹推导），改密写回 password_hash 即可让旧 token 失效。
+	// Password changes invalidate tokens through the password-hash fingerprint;
+	// explicit revoke-all independently increments the persisted generation.
 	if err := s.userRepo.Update(ctx, user, UserUpdateFields{PasswordHash: true}); err != nil {
 		return fmt.Errorf("update user: %w", err)
 	}

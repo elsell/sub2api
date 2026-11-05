@@ -1609,3 +1609,9 @@ func (r *userRepository) DisableTotp(ctx context.Context, userID int64) error {
 	}
 	return nil
 }
+
+// IncrementTokenVersion revokes issued JWTs without overwriting unrelated fields.
+func (r *userRepository) IncrementTokenVersion(ctx context.Context, userID int64) error {
+	_, err := r.client.User.UpdateOneID(userID).AddTokenVersion(1).Save(ctx)
+	return err
+}
