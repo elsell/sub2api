@@ -32,6 +32,16 @@ func ClaudeCodeSessionIDFromHeader(c *gin.Context) string {
 	return sanitizeSessionID(c.GetHeader(claudeCodeSessionHeader))
 }
 
+// ClaudeSessionAffinityIDFromHeader reads the explicit conversation identity
+// sent by clients such as OpenClaw. Routing opts into this signal separately
+// from the protocol-agnostic usage-log correlation helper below.
+func ClaudeSessionAffinityIDFromHeader(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+	return sanitizeSessionID(c.GetHeader(openCodeSessionAffinityHeader))
+}
+
 // ExtractClientSessionID resolves the explicit client-provided session identifier from
 // request headers for usage-log correlation and returns it sanitized. It is
 // protocol-agnostic and shared by every gateway handler so all supported protocols

@@ -921,6 +921,12 @@ func (s *GatewayService) GenerateSessionHash(parsed *ParsedRequest) string {
 		)
 	}
 
+	// An explicit client identity stays stable as cache checkpoints and messages
+	// grow. Scope it by the authenticated API key, not a client-supplied tenant.
+	if ctx := parsed.SessionContext; ctx != nil && ctx.SessionAffinityID != "" {
+		return s.hashContent("client-affinity:" + strconv.FormatInt(ctx.APIKeyID, 10) + ":" + ctx.SessionAffinityID)
+	}
+
 	// 2. 提取带 cache_control: {type: "ephemeral"} 的内容
 	cacheableContent := s.extractCacheableContent(parsed)
 	if cacheableContent != "" {
