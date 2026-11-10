@@ -67,3 +67,7 @@ func TestThinkingHistoryCrossedAccounts(t *testing.T) {
 	require.False(t, svc.thinkingHistoryCrossedAccounts(ctx, &Account{ID: 9, Platform: PlatformOpenAI}, parsed, "gpt-6.1-sol"))
 	require.False(t, (&GatewayService{}).thinkingHistoryCrossedAccounts(ctx, key, parsed, "claude-opus-5-5"), "caches without the capability are a no-op")
 }
+
+func TestDefaultRectifierSettings_APIKeySignatureEnabled(t *testing.T) {
+	require.True(t, DefaultRectifierSettings().APIKeySignatureEnabled, "API-key accounts retry signature errors by default")
+}

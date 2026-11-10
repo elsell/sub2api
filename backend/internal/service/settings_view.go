@@ -536,6 +536,9 @@ func DefaultRectifierSettings() *RectifierSettings {
 		Enabled:                  true,
 		ThinkingSignatureEnabled: true,
 		ThinkingBudgetEnabled:    true,
+		// Official API keys reject another account's thinking signatures the
+		// same way OAuth accounts do (seen after subscription failover).
+		APIKeySignatureEnabled: true,
 	}
 }
 
