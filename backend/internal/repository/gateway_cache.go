@@ -487,3 +487,28 @@ func (c *gatewayCache) MarkLiveCallClosed(ctx context.Context, callHash string, 
 	result, err := markLiveCallClosedScript.Run(ctx, c.rdb, []string{liveCallKey(callHash)}, int64(ttl.Seconds())).Int()
 	return result == 1, err
 }
+
+const thinkingLineagePrefix = "thinking_lineage:"
+
+// Records the account serving a conversation; once a second account appears,
+// the value becomes "mixed" and stays so until the TTL lapses.
+var recordThinkingAccountScript = redis.NewScript(`
+local current = redis.call('GET', KEYS[1])
+if (not current) or current == ARGV[1] then
+  redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2])
+  return 0
+end
+redis.call('SET', KEYS[1], 'mixed', 'PX', ARGV[2])
+return 1
+`)
+
+func (c *gatewayCache) RecordThinkingAccount(ctx context.Context, groupID int64, lineageKey string, accountID int64, ttl time.Duration) (bool, error) {
+	key := fmt.Sprintf("%s%d:%s", thinkingLineagePrefix, groupID, lineageKey)
+	mixed, err := recordThinkingAccountScript.Run(ctx, c.rdb, []string{key}, strconv.FormatInt(accountID, 10), ttl.Milliseconds()).Int()
+	if err != nil {
+		return false, err
+	}
+	return mixed == 1, nil
+}
+
+var _ service.ThinkingLineageCache = (*gatewayCache)(nil)
